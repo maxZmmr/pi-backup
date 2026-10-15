@@ -6,8 +6,8 @@ use std::path::PathBuf;
 #[command(about = "Lightweight homelab backup tool & watchdog for Raspberry Pis", long_about = None)]
 pub struct Cli {
     /// Path to the configuration file
-    #[arg(short, long, default_value = "config.toml")]
-    pub config: PathBuf,
+    #[arg(short, long)]
+    pub config: Option<PathBuf>,
 
     #[command(subcommand)]
     pub command: Commands,
@@ -38,6 +38,10 @@ pub enum Commands {
         /// Path to age secret key file or the raw key string itself
         #[arg(short, long)]
         key: String,
+
+        /// Automatically take the latest cloud backup without interactive prompt
+        #[arg(short, long)]
+        latest: bool,
     },
     /// List all available backups on remote cloud storage
     List {

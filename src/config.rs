@@ -1,6 +1,10 @@
 use anyhow::Context;
 use serde::Deserialize;
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -39,4 +43,28 @@ pub fn load_config(path: &PathBuf) -> anyhow::Result<Config> {
     let config: Config = toml::from_str(&content).context("Failed to parse TOML configuration")?;
 
     Ok(config)
+}
+
+pub fn resolve_config_path(explicit_path: Option<&Path>) -> anyhow::Result<PathBuf> {
+    if let Some(path) = explicit_path {
+        if path.is_file() {
+            return Ok(path.to_path_buf());
+        }
+        anyhow::bail!(
+            "Specified configuration file '{}' does not exist",
+            path.display()
+        );
+    }
+
+    let candidates = [
+        PathBuf::from("config.toml"),
+        PathBuf::from("/etc/pi-backup/config.toml"),
+    ];
+
+    for candidate in candidates {
+        if candidate.is_file() {
+            return Ok(candidate.clone());
+        }
+    }
+    anyhow::bail!("No configuration file found. Checked: ./config.toml and /etc/pi-backup/config.toml. Please provide one with --config <PATH>");
 }

@@ -5,6 +5,7 @@ mod notify;
 mod restore;
 mod upload;
 
+use anyhow::Context;
 use backup::run_backup;
 use clap::Parser;
 use cli::{Cli, Commands};
@@ -15,9 +16,12 @@ use upload::{download_cloud_backup, list_cloud_backups};
 
 use age::secrecy::ExposeSecret;
 
+use crate::config::resolve_config_path;
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    let config = load_config(&cli.config)?;
+    let config_path = resolve_config_path(cli.config.as_deref())?;
+    let config = load_config(&config_path)?;
 
     match cli.command {
         Commands::Backup { job } => {
@@ -48,6 +52,7 @@ fn main() -> anyhow::Result<()> {
             job,
             target,
             key,
+            latest,
         } => {
             println!("Starting restore into target directory: {:?}", target);
 
@@ -72,7 +77,15 @@ fn main() -> anyhow::Result<()> {
                         job_name
                     );
                     let cloud_files = list_cloud_backups(&config.rclone_remote, job_name)?;
-                    let selected_file = prompt_select_backup(&cloud_files)?;
+
+                    let selected_file = if latest {
+                        cloud_files
+                            .last()
+                            .context("No backups found in cloud!")?
+                            .as_str()
+                    } else {
+                        prompt_select_backup(&cloud_files)?
+                    };
 
                     println!(
                         "Selected archive: '{}'. Downloading from cloud...",
