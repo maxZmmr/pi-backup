@@ -1,95 +1,43 @@
-﻿# pi-backup 🛡️
+﻿# pi-backup
 
-[![CI](https://github.com/mxjhf/pi-backup/actions/workflows/build.yml/badge.svg)](https://github.com/mxjhf/pi-backup/actions/workflows/build.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/Rust-2021-orange.svg)](https://www.rust-lang.org/)
+A simple, lightweight backup tool for Raspberry Pi and homelab servers.
 
-**A lightweight, single-binary homelab backup tool & watchdog designed specifically for Raspberry Pis and Linux micro-servers.**
+It takes targeted backups of files, directories, and live SQLite databases (e.g. Vaultwarden), streams them through in-memory compression and encryption, uploads them to cloud storage via `rclone`, and pings Healthchecks.io.
 
-Traditional backup tools like BorgBackup or Restic are great for multi-gigabyte media archives, but for services like **Vaultwarden**, databases, and server configurations, they introduce heavy deduplication caches that thrash SD cards and can leave your backup history vulnerable if the central repository corrupts.
+## Features
 
-`pi-backup` takes a different approach: **Zero unencrypted intermediate files on disk**, **in-memory streaming**, **isolated independent snapshots**, and **asymmetric public-key encryption**.
+- **SD-card friendly:** Streams archives directly in memory (`tar -> zstd -> age`). No unencrypted temporary files on disk.
+- **Consistent SQLite dumps:** Uses the SQLite Online Backup API to dump databases into `/dev/shm` before archiving.
+- **Asymmetric encryption:** Encrypted with [age](https://github.com/FiloSottile/age) (X25519). The Pi only stores the public key and cannot decrypt historical backups.
+- **Rclone integration:** Uploads archives and automatically rotates backups older than `keep_last` days.
+- **Healthchecks.io support:** Pings your healthcheck endpoint on start, success, and sends error traces on failure.
+- **Restore CLI:** Select and restore backups directly from cloud storage or local files.
 
----
+## Installation
 
-## 🚀 Key Features
-
-- **SD-Card Friendly In-Memory Pipeline:**  
-  Files and databases are streamed directly through a nested `std::io::Write` pipeline:  
-  `Files -> tar -> zstd (compression) -> age (encryption) -> cloud destination`.  
-  No unencrypted or uncompressed intermediate files ever touch the storage card.
-- **Consistent SQLite Online Dumps:**  
-  Safe live backups of running SQLite databases (e.g. Vaultwarden) using the SQLite Online Backup API dumped to Linux RAM-disk (`/dev/shm`).
-- **Asymmetric Encryption with `age`:**  
-  Encrypted using modern X25519 elliptic-curve cryptography. The Raspberry Pi only needs the **Public Key** to create backups. Even if your server is compromised, attackers **cannot decrypt your backups**!
-- **Automated Cloud Sync & Rotation via `rclone`:**  
-  Uploads directly to Google Drive, S3, Nextcloud, OneDrive, or SFTP and automatically purges historical archives older than `keep_last` days.
-- **Healthchecks.io & Dead-Man's-Snitch Monitoring:**  
-  Sends start and finish signals (with detailed error traces) to [Healthchecks.io](https://healthchecks.io) to ensure you are instantly alerted if a cron job fails.
-- **Interactive Cloud Restore:**  
-  Interactive CLI restore with numbered backup versions fetched directly from cloud storage.
-- **Zero Runtime Dependencies:**  
-  SQLite is bundled directly into the statically linked Rust binary (`aarch64-unknown-linux-musl`).
-
----
-
-## 📦 Architecture Pipeline
-
-```text
-               ┌────────────────────────────────────────────────────────┐
-               │                     Raspberry Pi                       │
-               │                                                        │
-[Local Files] ─┼────────┐                                               │
-               │        ▼                                               │
-[SQLite DB] ───┼─▶ [/dev/shm Snapshot]                                  │
-               │        │                                               │
-               │        ▼                                               │
-               │   ┌─────────┐   ┌─────────┐   ┌─────────┐              │
-               │   │   tar   │──▶│  zstd   │──▶│   age   │ (In-RAM)     │
-               │   └─────────┘   └─────────┘   └─────────┘              │
-               │                                    │                   │
-               │                                    ▼                   │
-               │                         [Encrypted Archive]            │
-               │                                    │                   │
-               │                                    ▼                   │
-               │                                [ rclone ]              │
-               └────────────────────────────────────┬───────────────────┘
-                                                    │
-                                                    ▼
-                                          [ Google Drive / S3 ]
-```
-
----
-
-## 📥 Installation
-
-### Option 1: Download Prebuilt ARM64 Binary (Recommended)
-Download the latest statically compiled `pi-backup-arm64` binary from your GitHub Actions artifacts or releases:
+### Prebuilt binary
+Download the `pi-backup-arm64` binary from the GitHub Actions tab of this repository, then make it executable:
 
 ```bash
+chmod +x pi-backup-arm64
 sudo mv pi-backup-arm64 /usr/local/bin/pi-backup
-sudo chmod +x /usr/local/bin/pi-backup
 ```
 
-### Option 2: Build From Source
+### Build from source
 ```bash
-git clone https://github.com/mxjhf/pi-backup.git
-cd pi-backup
 cargo build --release
 sudo cp target/release/pi-backup /usr/local/bin/
 ```
 
----
+## Configuration
 
-## ⚙️ Configuration (`config.toml`)
-
-Create a configuration file (e.g. `/etc/pi-backup/config.toml`):
+Create a `config.toml` (e.g. at `/etc/pi-backup/config.toml`):
 
 ```toml
-# Public key for encryption (generate one with: pi-backup keygen)
-age_public_key = "age1t7m8curm2pzdmlye5hkka5u66xpd942ye7amyy0l27vv065twqjsqkwzws"
+# Public key to encrypt archives (generate with: pi-backup keygen)
+age_public_key = "age1..."
 
-# Rclone remote destination
+# rclone remote path
 rclone_remote = "gdrive:pi-backups"
 
 [jobs.vaultwarden]
@@ -99,69 +47,42 @@ include_paths = [
     "/etc/vaultwarden.env"
 ]
 keep_last = 14
-healthcheck_url = "https://hc-ping.com/your-healthchecks-uuid-here"
+healthcheck_url = "https://hc-ping.com/<uuid>"
 
-[jobs.system_config]
+[jobs.configs]
 include_paths = [
     "/etc/fstab",
-    "/etc/network/interfaces",
     "/home/pi/docker-compose.yml"
 ]
 keep_last = 7
-healthcheck_url = "https://hc-ping.com/another-uuid-here"
 ```
 
----
+## Commands
 
-## 🛠️ Usage
-
-### 1. Generate an Encryption Keypair
 ```bash
+# Generate a new age keypair
 pi-backup keygen
-```
-> ⚠️ **Important:** Add the printed **Public Key** to `config.toml`. Store the **Private Key** in your password manager. Never leave the private key on the server!
 
-### 2. Run a Backup Job
-```bash
-pi-backup --config /etc/pi-backup/config.toml backup -j vaultwarden
-```
+# Run a backup job
+pi-backup --config config.toml backup -j vaultwarden
 
-### 3. List Available Backups from Cloud
-```bash
-pi-backup --config /etc/pi-backup/config.toml list -j vaultwarden
-```
+# List cloud backups for a job
+pi-backup --config config.toml list -j vaultwarden
 
-### 4. Restore an Archive
-Restore interactively from cloud:
-```bash
-pi-backup --config /etc/pi-backup/config.toml restore -j vaultwarden -t /restore/path -k "AGE-SECRET-KEY-1..."
-```
-Or restore from a local `.tar.zst.age` file:
-```bash
-pi-backup restore -a ./backup.tar.zst.age -t /restore/path -k "AGE-SECRET-KEY-1..."
+# Restore interactively from cloud
+pi-backup --config config.toml restore -j vaultwarden -t /target/dir -k "<AGE-SECRET-KEY>"
+
+# Restore from a local file
+pi-backup restore -a backup.tar.zst.age -t /target/dir -k "<AGE-SECRET-KEY>"
 ```
 
----
+## Cron example
 
-## ⏰ Automated Cron / Systemd Setup
-
-Set up a nightly cronjob with `crontab -e`:
-
-```bash
-# Run Vaultwarden backup every night at 03:00 AM
-0 3 * * * /usr/local/bin/pi-backup --config /etc/pi-backup/config.toml backup -j vaultwarden > /var/log/pi-backup.log 2>&1
+```cron
+# Run daily at 03:00 AM
+0 3 * * * /usr/local/bin/pi-backup --config /etc/pi-backup/config.toml backup -j vaultwarden
 ```
 
----
+## License
 
-## 🔒 Security Model
-
-- **Zero-Knowledge Server:** The server only possesses the public key. Compromising the Raspberry Pi does not yield access to historical backups.
-- **Pure Authenticated Encryption:** Every archive uses `age` (ChaCha20-Poly1305 / HMAC) ensuring cryptographic integrity.
-- **Fail-Safe Watchdog:** Files smaller than 1 byte or corrupted dumps are caught before upload, and immediate `/fail` alerts are dispatched to Healthchecks.io.
-
----
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
+MIT

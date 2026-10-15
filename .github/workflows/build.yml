@@ -18,13 +18,18 @@ jobs:
         with:
           targets: aarch64-unknown-linux-musl
 
-      - name: Install Cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: aarch64-unknown-linux-musl
 
-      - name: Compile for Raspberry Pi (ARM64 musl)
+      - name: Install Cross
+        uses: taiki-e/install-action@cross
+
+      - name: Build binary (ARM64 musl)
         run: cross build --target aarch64-unknown-linux-musl --release
 
-      - name: Upload Pi Binary
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pi-backup-arm64
