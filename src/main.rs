@@ -1,17 +1,17 @@
-﻿mod cli;
-mod config;
 mod backup;
+mod cli;
+mod config;
+mod notify;
 mod restore;
 mod upload;
-mod notify;
 
+use backup::run_backup;
 use clap::Parser;
 use cli::{Cli, Commands};
 use config::load_config;
-use backup::run_backup;
-use restore::{prompt_select_backup, run_restore};
-use upload::{list_cloud_backups, download_cloud_backup};
 use notify::{send_finish, send_start};
+use restore::{prompt_select_backup, run_restore};
+use upload::{download_cloud_backup, list_cloud_backups};
 
 use age::secrecy::ExposeSecret;
 
@@ -43,7 +43,12 @@ fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        Commands::Restore { archive, job, target, key } => {
+        Commands::Restore {
+            archive,
+            job,
+            target,
+            key,
+        } => {
             println!("Starting restore into target directory: {:?}", target);
 
             let (_temp_dir, archive_path) = match archive {
@@ -55,17 +60,26 @@ fn main() -> anyhow::Result<()> {
                             if config.jobs.len() == 1 {
                                 config.jobs.keys().next().unwrap()
                             } else {
-                                anyhow::bail!("Please specify the job name to restore with --job <NAME>");
+                                anyhow::bail!(
+                                    "Please specify the job name to restore with --job <NAME>"
+                                );
                             }
                         }
                     };
 
-                    println!("Fetching available backups from cloud for job '{}'...", job_name);
+                    println!(
+                        "Fetching available backups from cloud for job '{}'...",
+                        job_name
+                    );
                     let cloud_files = list_cloud_backups(&config.rclone_remote, job_name)?;
                     let selected_file = prompt_select_backup(&cloud_files)?;
 
-                    println!("Selected archive: '{}'. Downloading from cloud...", selected_file);
-                    let (temp_dir, path) = download_cloud_backup(&config.rclone_remote, job_name, selected_file)?;
+                    println!(
+                        "Selected archive: '{}'. Downloading from cloud...",
+                        selected_file
+                    );
+                    let (temp_dir, path) =
+                        download_cloud_backup(&config.rclone_remote, job_name, selected_file)?;
                     (Some(temp_dir), path)
                 }
             };

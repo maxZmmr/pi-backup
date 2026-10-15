@@ -1,5 +1,5 @@
-﻿use std::{fs, path::Path};
 use anyhow::Context;
+use std::{fs, path::Path};
 use tempfile::TempDir;
 
 pub fn upload_and_rotate(
@@ -9,14 +9,24 @@ pub fn upload_and_rotate(
     keep_last_days: u32,
 ) -> anyhow::Result<()> {
     if !archive_path.is_file() {
-        anyhow::bail!("Watchdog alert: Archive file '{}' does not exist!", archive_path.display());
+        anyhow::bail!(
+            "Watchdog alert: Archive file '{}' does not exist!",
+            archive_path.display()
+        );
     }
 
-    let metadata = fs::metadata(archive_path)
-        .with_context(|| format!("Failed to read file metadata for '{}'", archive_path.display()))?;
+    let metadata = fs::metadata(archive_path).with_context(|| {
+        format!(
+            "Failed to read file metadata for '{}'",
+            archive_path.display()
+        )
+    })?;
     let file_size = metadata.len();
     if file_size == 0 {
-        anyhow::bail!("Watchdog alert: Archive file '{}' is empty (0 bytes)!", archive_path.display());
+        anyhow::bail!(
+            "Watchdog alert: Archive file '{}' is empty (0 bytes)!",
+            archive_path.display()
+        );
     }
     println!("Watchdog OK: Archive verified ({} bytes).", file_size);
 
@@ -31,12 +41,18 @@ pub fn upload_and_rotate(
         .context("Failed to execute rclone. Is rclone installed and available in PATH?")?;
 
     if !upload_status.success() {
-        anyhow::bail!("rclone copy failed with exit code: {:?}", upload_status.code());
+        anyhow::bail!(
+            "rclone copy failed with exit code: {:?}",
+            upload_status.code()
+        );
     }
     println!("Upload completed successfully!");
 
     let min_age = format!("{}d", keep_last_days);
-    println!("Rotating old backups (deleting archives older than {})...", min_age);
+    println!(
+        "Rotating old backups (deleting archives older than {})...",
+        min_age
+    );
     let delete_status = std::process::Command::new("rclone")
         .arg("delete")
         .arg(&destination)
@@ -46,11 +62,18 @@ pub fn upload_and_rotate(
         .context("Failed to execute rclone delete")?;
 
     if !delete_status.success() {
-        anyhow::bail!("rclone delete failed with exit code: {:?}", delete_status.code());
+        anyhow::bail!(
+            "rclone delete failed with exit code: {:?}",
+            delete_status.code()
+        );
     }
 
-    fs::remove_file(archive_path)
-        .with_context(|| format!("Failed to clean up local archive file '{}'", archive_path.display()))?;
+    fs::remove_file(archive_path).with_context(|| {
+        format!(
+            "Failed to clean up local archive file '{}'",
+            archive_path.display()
+        )
+    })?;
     println!("Local temporary archive cleaned up successfully.");
 
     Ok(())
@@ -65,7 +88,10 @@ pub fn list_cloud_backups(remote: &str, job_name: &str) -> anyhow::Result<Vec<St
         .context("Failed to list files from rclone remote")?;
 
     if !output.status.success() {
-        anyhow::bail!("rclone listing failed with exit code: {:?}", output.status.code());
+        anyhow::bail!(
+            "rclone listing failed with exit code: {:?}",
+            output.status.code()
+        );
     }
 
     let text = String::from_utf8(output.stdout)
@@ -100,7 +126,10 @@ pub fn download_cloud_backup(
         .context("Failed to execute rclone copyto")?;
 
     if !copy_status.success() {
-        anyhow::bail!("rclone copyto failed with exit code: {:?}", copy_status.code());
+        anyhow::bail!(
+            "rclone copyto failed with exit code: {:?}",
+            copy_status.code()
+        );
     }
 
     Ok((temp_dir, target_file_path))

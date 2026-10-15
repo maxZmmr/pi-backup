@@ -1,6 +1,6 @@
-﻿use std::{collections::HashMap, fs, path::PathBuf};
 use anyhow::Context;
 use serde::Deserialize;
+use std::{collections::HashMap, fs, path::PathBuf};
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -32,8 +32,7 @@ fn default_keep_last() -> u32 {
 pub fn load_config(path: &PathBuf) -> anyhow::Result<Config> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read configuration file at '{}'", path.display()))?;
-    let config: Config = toml::from_str(&content)
-        .context("Failed to parse TOML configuration")?;
+    let config: Config = toml::from_str(&content).context("Failed to parse TOML configuration")?;
 
     Ok(config)
 }
