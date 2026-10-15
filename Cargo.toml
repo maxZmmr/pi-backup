@@ -1,0 +1,17 @@
+[package]
+name = "backup_manager"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+rusqlite = { version = "0.31", features = ["bundled", "backup"] }
+tempfile = "3.10"
+toml = "0.8"
+anyhow = "1.0"
+tar = "0.4"
+zstd = "0.13"
+age = "0.10"
+chrono = "0.4"
+ureq = "2.9"
