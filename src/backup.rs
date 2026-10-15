@@ -19,23 +19,30 @@ pub fn run_backup(job_name: &str, job: &JobConfig, config: &Config) -> anyhow::R
         job.include_paths
     );
 
-    let mut sqlite_temp_file = None;
+    let mut sqlite_data = None;
     let timestamp = Local::now().format("%Y-%m-%d_%H-%M-%S");
     let archive_path = PathBuf::from(format!("{}_{}_backup.tar.zst.age", job_name, timestamp));
 
     if let Some(db_path) = &job.sqlite_db {
+        let db_namme = db_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("database.sqlite3");
         println!("SQLite database configured: {}", db_path.display());
         let snap = create_sqlite_snapshot(db_path)?;
-        sqlite_temp_file = Some(snap);
+        sqlite_data = Some((snap, db_namme));
     } else {
         println!("No SQLite database configured for this job.");
     }
 
+    let dump_ref = sqlite_data.as_ref().map(|(snap, name)| (snap, *name));
+
     create_backup_archive(
         &archive_path,
         &job.include_paths,
-        sqlite_temp_file.as_ref(),
+        dump_ref,
         &config.age_public_key,
+        job.preserve_paths,
     )?;
 
     upload_and_rotate(
@@ -84,8 +91,9 @@ fn create_sqlite_snapshot(db_path: &Path) -> anyhow::Result<NamedTempFile> {
 fn create_backup_archive(
     output_path: &Path,
     include_paths: &[PathBuf],
-    sqlite_dump: Option<&NamedTempFile>,
+    sqlite_dump: Option<(&NamedTempFile, &str)>,
     age_public_key: &str,
+    preserve_paths: bool,
 ) -> anyhow::Result<()> {
     let file = File::create(output_path).with_context(|| {
         format!(
@@ -113,7 +121,11 @@ fn create_backup_archive(
             continue;
         }
 
-        let name_in_archive = path.file_name().unwrap_or(path.as_os_str());
+        let name_in_archive = if preserve_paths {
+            path.strip_prefix("/").unwrap_or(path)
+        } else {
+            Path::new(path.file_name().unwrap_or(path.as_os_str()))
+        };
 
         if path.is_dir() {
             println!("  Archiving directory: {}", path.display());
@@ -128,10 +140,10 @@ fn create_backup_archive(
         }
     }
 
-    if let Some(dump) = sqlite_dump {
+    if let Some((dump, db_name)) = sqlite_dump {
         println!("  Packing consistent SQLite snapshot into archive...");
         tar_builder
-            .append_path_with_name(dump.path(), "database.sqlite3")
+            .append_path_with_name(dump.path(), db_name)
             .context("Failed to append SQLite snapshot to archive")?;
     }
 

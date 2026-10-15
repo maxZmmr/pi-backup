@@ -3,14 +3,20 @@ rclone_remote = "gdrive:raspi_backups"
 
 [jobs.vaultwarden]
 sqlite_db = "test.db"
-include_paths = ["screen.png"]
 keep_last = 14
 healthcheck_url = "https://hc-ping.com/<USER UUID>"
 
 [jobs.system_config]
-# Dieser Job hat keine SQLite-DB, daher fehlt das Feld einfach!
 include_paths = [
     "path/to/include",
     "another/path"
 ]
 keep_last = 7
+
+[jobs.random]
+sqlite_db = "test.db"
+include_paths = [
+    "path/to/include",
+    "another/path"
+]
+keep_last = 2

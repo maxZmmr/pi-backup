@@ -17,10 +17,14 @@ pub struct JobConfig {
     /// Optional: Path to SQLite database file for safe online dumps
     pub sqlite_db: Option<PathBuf>,
     /// Directories and files to include in the backup archive
+    #[serde(default)]
     pub include_paths: Vec<PathBuf>,
     /// Retention period in days for cloud backup rotation
     #[serde(default = "default_keep_last")]
     pub keep_last: u32,
+    /// Preserve the original path structure in the backup archive
+    #[serde(default)]
+    pub preserve_paths: bool,
     /// Optional: Healthchecks.io ping URL for execution monitoring
     pub healthcheck_url: Option<String>,
 }
