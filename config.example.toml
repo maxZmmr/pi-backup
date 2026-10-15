@@ -20,3 +20,4 @@ include_paths = [
     "another/path"
 ]
 keep_last = 2
+preserve_paths = true
