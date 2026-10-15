@@ -1,49 +1,50 @@
-use clap::{Parser, Subcommand};
+﻿use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(name = "pi-backup")]
-#[command(about = "small backup tool for raspi", long_about = None)]
+#[command(about = "Lightweight homelab backup tool & watchdog for Raspberry Pis", long_about = None)]
 pub struct Cli {
+    /// Path to the configuration file
     #[arg(short, long, default_value = "config.toml")]
     pub config: PathBuf,
+
     #[command(subcommand)]
     pub command: Commands,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// Führt ein Backup für einen definierten Job aus
+    /// Run a backup for the specified job
     Backup {
-        /// Name des Jobs
+        /// Name of the job as defined in config.toml
         #[arg(short, long)]
         job: String,
     },
-    /// Stellt ein Backup aus einer .tar.zst.age Datei wieder her
+    /// Restore data from an encrypted .tar.zst.age backup
     Restore {
-        /// Optional: Lokale Backup-Datei (.tar.zst.age)
+        /// Optional: Local backup file path. If omitted, backups are listed from cloud.
         #[arg(short, long)]
         archive: Option<PathBuf>,
 
-        /// Optional: Name des Jobs in der Cloud (falls aus der Cloud geladen wird)
+        /// Optional: Job name to search for in remote cloud storage
         #[arg(short, long)]
         job: Option<String>,
 
-        /// Zielordner für die wiederhergestellten Daten
+        /// Destination directory for restored files
         #[arg(short, long)]
         target: PathBuf,
 
-        /// Pfad zur age Secret-Key Datei oder der Schlüssel selbst
+        /// Path to age secret key file or the raw key string itself
         #[arg(short, long)]
         key: String,
     },
-    /// Zeigt alle backups, die auf der rclone drive gespeichert sind
+    /// List all available backups on remote cloud storage
     List {
-        /// Name des Jobs
+        /// Name of the job
         #[arg(short, long)]
         job: String,
     },
-    /// generiert neue Schlüsselpaare
+    /// Generate a fresh age X25519 keypair for encryption and decryption
     Keygen,
 }
-

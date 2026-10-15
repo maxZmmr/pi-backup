@@ -1,4 +1,4 @@
-name: Build Raspberry Pi Binary
+﻿name: Build Raspberry Pi Binary
 
 on:
   push:
@@ -28,4 +28,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pi-backup-arm64
-          path: target/aarch64-unknown-linux-musl/release/backup_manager
+          path: target/aarch64-unknown-linux-musl/release/pi-backup

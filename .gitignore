@@ -1,20 +1,12 @@
-# Rust Build-Artefakte
-/target/
-
-# Lokale Test-Dateien & Archive (gehören nicht ins Repo)
-*.tar.zst.age
+﻿/target/
 *.db
 *.sqlite3
 test.db
-
-# Test-Wiederherstellungsordner
+*.tar.zst.age
 /wiederhergestellt/
 /test_restore/
-
-# Sensibles & Secrets
 .env
 *.key
 key.txt
-
 config.toml
 screen.png
